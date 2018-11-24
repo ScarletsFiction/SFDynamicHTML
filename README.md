@@ -4,27 +4,30 @@
 [![Software License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
 # SFDynamicHTML
-SFDynamicHTML is a library that allow you to dynamically change HTML content from client-side/browser.
+SFDynamicHTML is a library that allow you to dynamically load HTML content from client-side/browser.
 
-This library was useful to serve web content without refresing user browser.
+This library was useful to lazily change DOM content.
 
 ## Sample Usage
 
 ```html
 <div class="user-list">
     <user id="1">
-        <a part="href" class="user">
+        <a part="href">
             <img part="src">
             <span part="html"></span>
-            <div class="status">Offline</div>
         </a>
     </user>
+
     <user id="2">
-        <a part="href" class="user">
+        <a part="href">
             <img part="src">
             <span part="html"></span>
-            <div class="status">Offline</div>
         </a>
+    </user>
+
+    <user id="1">
+        <a part="href">Visit first user</a>
     </user>
 </div>
 
