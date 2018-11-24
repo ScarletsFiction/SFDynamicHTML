@@ -5,38 +5,22 @@
 	
 	Make sure you include this header on this script
 */
-
-// html can be jQuery, DOM, or string
-// ex <div {{$what}}>is {{$what}}</div>
-// data = {what:value}
-function SFDynamicHTML(html, data){
-	var pattern = /{{(.*?)}}/g;
-
-	if(html.constructor == HTMLDivElement)
-		html = html.outerHTML;
-	else if(html.jquery)
-		html = html.html();
-
-	return html.replace(pattern, function(whole, group){
-		return data[group];
-	});
-}
+'use strict';
 
 // values = {ids:{href, html, src}}
-function SFDynamicHTMLValue(attrName, values){
-	var elemList = document.querySelectorAll('['+attrName+']');
+function SFDynamicHTML(tagName, values, target){
+	var elemList = (target ? target : document).querySelectorAll(tagName);
+	tagName = [tagName.toUpperCase()];
 
-	var getRelatedChildren = function(element){
+	var getRelatedChildren = function(element, skip){
 		var result = [];
 		var skipExclude = function(parent){
 			var childs = parent.children;
 			for (var i = 0; i < childs.length; i++) {
-				if(childs[i].hasAttribute(attrName)){
+				if(skip.indexOf(childs[i].tagName) !== -1 || !childs[i].hasAttribute('part'))
 					continue;
-				}
-				else if(childs[i].hasAttribute('sfpart')){
-					result.push(childs[i]);
-				}
+
+				result.push(childs[i]);
 				skipExclude(childs[i]);
 			}
 		}
@@ -45,18 +29,16 @@ function SFDynamicHTMLValue(attrName, values){
 	}
 
 	for (var i = 0; i < elemList.length; i++){
-		var value = values[elemList[i].getAttribute(attrName)]; // Get the value reference for the ID
+		var value = values[elemList[i].id]; // Get the value reference for the ID
 		if(!value) continue; // Skip the unchanged element
 
-		var element = [elemList[i]];
+		var skip = elemList[i].hasAttribute('skip') ? elemList[i].attribute['skip'].value.split(' ').join('').split(',') : [];
 
 		// Find child element that related to this ID
-		var childs = getRelatedChildren(element[0]);
-		element = element.concat(childs); // Merge it
+		var element = getRelatedChildren(elemList[i], tagName.concat(skip));
 
 		for (var a = 0; a < element.length; a++){
-			var sfpart = element[a].getAttribute('sfpart');
-			if(!sfpart) continue; // Dynamic part not found
+			var sfpart = element[a].getAttribute('part');
 			sfpart = sfpart.split(' ').join('').split(',');
 
 			for (var z = 0; z < sfpart.length; z++) {
@@ -75,7 +57,6 @@ function SFDynamicHTMLValue(attrName, values){
 						element[a].classList.remove('b-error');
 						element[a].setAttribute('data-src', value.src);
 						element[a].setAttribute('src', 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=');
-						Blazy();
 					}
 				}
 
