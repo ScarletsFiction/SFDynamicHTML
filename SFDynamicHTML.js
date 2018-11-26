@@ -1,7 +1,7 @@
 /*
-	ScarletsFiction Dynamic HTML Library v1.0
+	SFDynamicHTML
 	Dynamically change content of a html
-	https://github.com/ScarletsFiction/SFIntercom
+	https://github.com/ScarletsFiction/SFDynamicHTML
 	
 	Make sure you include this header on this script
 */
