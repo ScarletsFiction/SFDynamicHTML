@@ -1,26 +1,40 @@
 /*
 	SFDynamicHTML
-	Dynamically change content of a html
+	Dynamically/Asynchronously change DOM content
 	https://github.com/ScarletsFiction/SFDynamicHTML
 	
 	Make sure you include this header on this script
 */
 'use strict';
 
-// values = {ids:{href, html, src}}
+// values = {id:{href, html, src}}
 function SFDynamicHTML(tagName, values, target){
-	var elemList = (target ? target : document).querySelectorAll(tagName);
-	tagName = [tagName.toUpperCase()];
+	// Add to pending element
+	if(typeof tagName !== 'string'){
+		var name = tagName.tagName;
 
-	var getRelatedChildren = function(element, skip){
+		if(SFDynamicHTML.pending[name] === undefined)
+			name = SFDynamicHTML.pending[name] = {};
+		else name = SFDynamicHTML.pending[name];
+
+		if(name[tagName.id] === undefined)
+			name[tagName.id] = [tagName];
+		else name[tagName.id].push(tagName);
+
+		return;
+	}
+
+	function getRelatedChildren(element){
 		var result = [];
 		var skipExclude = function(parent){
 			var childs = parent.children;
 			for (var i = 0; i < childs.length; i++) {
-				if(skip.indexOf(childs[i].tagName) !== -1 || !childs[i].hasAttribute('part'))
+				if(childs[i].classList.contains(SFDynamicHTML.attributes.skip))
 					continue;
 
-				result.push(childs[i]);
+				if(childs[i].hasAttribute(SFDynamicHTML.attributes.part))
+					result.push(childs[i]);
+
 				skipExclude(childs[i]);
 			}
 		}
@@ -28,42 +42,92 @@ function SFDynamicHTML(tagName, values, target){
 		return result;
 	}
 
-	for (var i = 0; i < elemList.length; i++){
-		var value = values[elemList[i].id]; // Get the value reference for the ID
-		if(!value) continue; // Skip the unchanged element
+	// Check any pending element
+	if(SFDynamicHTML.pending[name] !== undefined){
+		var temp = SFDynamicHTML.pending[name];
+		for(var id in values){
+			// Apply to all element for this ID
+			for (var i = 0; i < temp[id].length; i++) {
+				// Find child element that need to be modified and related to this ID
+				var element = getRelatedChildren(temp[id][i]);
 
-		var skip = elemList[i].hasAttribute('skip') ? elemList[i].attribute['skip'].value.split(' ').join('').split(',') : [];
+				for (var a = 0; a < element.length; a++){
+					var sfpart = element[a].getAttribute(SFDynamicHTML.attributes.part);
 
-		// Find child element that related to this ID
-		var element = getRelatedChildren(elemList[i], tagName.concat(skip));
-
-		for (var a = 0; a < element.length; a++){
-			var sfpart = element[a].getAttribute('part');
-			sfpart = sfpart.split(' ').join('').split(',');
-
-			for (var z = 0; z < sfpart.length; z++) {
-				if(sfpart[z].indexOf('html')!=-1){
-					var pattern = sfpart[z].split('->'); // ex (*) will be (text)
-					pattern = pattern.length != 1 ? pattern[1] : false;
-
-					element[a].innerHTML = pattern ? pattern.split('*').join(value.html) : value.html;
-				}
-
-				else if(sfpart[z].indexOf('src')!=-1){
-					element[a].setAttribute('src', value.src);
-
-					// If using Blazy for loading image
-					if(element[a].classList.contains('b-lazy')){
-						element[a].classList.remove('b-error');
-						element[a].setAttribute('data-src', value.src);
-						element[a].setAttribute('src', 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=');
-					}
-				}
-
-				else if(value[sfpart[z]]){ // Set attribute only
-					element[a].setAttribute(sfpart[z], value[sfpart[z]]);
+					// Call handler
+					if(SFDynamicHTML.processing[sfpart] !== undefined)
+						SFDynamicHTML.processing[sfpart](element[a], values[id]);
 				}
 			}
+
+			delete temp[id];
+		}
+
+		// Skip DOM check
+		if(target === null) return;
+	}
+
+	// Build query
+	var query = false;
+	var initial = tagName+'#';
+	for(var id in values){
+		if(query === false){
+			query = initial + CSS.escape(id);
+			continue;
+		}
+
+		query += ',' + initial + CSS.escape(id);
+	}
+
+	// DOM Check
+	var elemList = (target || document).querySelectorAll(query);
+
+	for (var i = 0; i < elemList.length; i++){
+		// Get the value reference for the ID
+		var value = values[elemList[i].id];
+
+		// Find child element that need to be modified and related to this ID
+		var element = getRelatedChildren(elemList[i]);
+
+		for (var a = 0; a < element.length; a++){
+			var sfpart = element[a].getAttribute(SFDynamicHTML.attributes.part);
+
+			// Call handler
+			if(SFDynamicHTML.processing[sfpart] !== undefined)
+				SFDynamicHTML.processing[sfpart](element[a], value);
 		}
 	}
 }
+
+SFDynamicHTML.pending = {};
+SFDynamicHTML.attributes = {
+	skip:'sf-skip', // class
+	part:'sf-part'
+};
+
+(function(){
+	function imageLoaded(){
+		this.classList.add('lazy-img-loaded');
+		this.onerror = this.onload = null;
+	}
+
+	SFDynamicHTML.processing = {
+		html:function(element, value){
+			var pattern = element.getAttribute('pattern'); // ex: `*` will be `text`
+
+			if(pattern)
+				element.innerText = pattern.split('*').join(value.html);
+			else element.innerText = value.html;
+		},
+		src:function(element, value){
+			element.setAttribute('src', value.src);
+		},
+		lazyImg:function(element, value){
+			// Lazy loading image
+			element.classList.add('lazy-img');
+			element.classList.remove('lazy-img-loaded');
+			element.onerror = element.onload = imageLoaded;
+			element.setAttribute('src', value.src);
+		}
+	};
+})();
